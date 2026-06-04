@@ -10,7 +10,7 @@ async function bootstrap() {
 
   // Enable CORS for frontend requests
   app.enableCors({
-    origin: ['http://localhost:3000', process.env.FRONTEND_URL].filter(Boolean),
+    origin: ['http://localhost:3000', process.env.FRONTEND_URL, 'https://daptive-fraud-framework-frontend.vercel.app'].filter(Boolean),
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
     credentials: true,
