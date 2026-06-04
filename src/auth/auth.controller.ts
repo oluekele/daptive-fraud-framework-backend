@@ -68,6 +68,3 @@ export class AuthController {
     });
   }
 }
-
-
-//Auth controller
