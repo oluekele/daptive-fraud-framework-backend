@@ -1,9 +1,12 @@
-import { Request } from 'express';
+import type { ParsedQs } from 'qs';
+import type { Request as ExpressRequest } from 'express';
 
-export interface AuthenticatedRequest extends Request {
+// Use an Express Request intersection so properties like `headers` are always present.
+export type AuthenticatedRequest = ExpressRequest<any, any, any, ParsedQs> & {
   user?: {
     userId: string;
     sessionId: string;
     email?: string;
   };
-}
+};
+
