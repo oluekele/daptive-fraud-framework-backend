@@ -15,7 +15,7 @@ import { RegisterDto } from './dto/register.dto';
 @ApiTags('auth')
 @Controller('auth')
 export class AuthController {
-  constructor(private auth: AuthService) {}
+  constructor(private auth: AuthService) { }
 
   @Post('register')
   @ApiOperation({ summary: 'Register a new user account' })
@@ -68,3 +68,6 @@ export class AuthController {
     });
   }
 }
+
+
+//Auth controller
