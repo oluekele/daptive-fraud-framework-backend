@@ -10,7 +10,7 @@ async function bootstrap() {
 
   // Enable CORS for frontend requests
   app.enableCors({
-    origin: ['http://localhost:3000', process.env.FRONTEND_URL].filter(Boolean),
+    origin: ['http://localhost:3000', process.env.FRONTEND_URL, 'https://daptive-fraud-framework-frontend.vercel.app'].filter(Boolean),
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
     credentials: true,
@@ -40,6 +40,7 @@ async function bootstrap() {
   const swaggerUrl = `${apiUrl}/docs`;
   console.log('DATABASE_URL:', process.env.DATABASE_URL);
 
+  console.log('DATABASE_URL:', process.env.DATABASE_URL);
   logger.log(`API running on: ${apiUrl}`);
   logger.log(`Swagger documentation: ${swaggerUrl}`);
 }
