@@ -12,7 +12,22 @@ export class AuthService {
   constructor(
     private prisma: PrismaService,
     private jwt: JwtService,
-  ) {}
+  ) { }
+
+  async logout(userId: string, sessionId: string) {
+    await this.prisma.session.updateMany({
+      where: {
+        id: sessionId,
+        userId,
+        endedAt: null,
+      },
+      data: {
+        endedAt: new Date(),
+      },
+    });
+
+    return { status: 'logged_out', sessionId };
+  }
 
   async register(email: string, password: string) {
     const existingUser = await this.prisma.user.findUnique({

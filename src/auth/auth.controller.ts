@@ -1,4 +1,4 @@
-import { Body, Controller, Post, Req } from '@nestjs/common';
+import { Body, Controller, Post, Req, UseGuards } from '@nestjs/common';
 import {
   ApiConflictResponse,
   ApiCreatedResponse,
@@ -11,11 +11,13 @@ import type { Request } from 'express';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
+import { JwtAuthGuard } from './guards/jwt-auth.guard';
 
 @ApiTags('auth')
 @Controller('auth')
 export class AuthController {
   constructor(private auth: AuthService) { }
+
 
   @Post('register')
   @ApiOperation({ summary: 'Register a new user account' })
@@ -67,4 +69,12 @@ export class AuthController {
       ipAddress: req.ip,
     });
   }
+
+  //   @Post('logout')
+  //   @UseGuards(JwtAuthGuard)
+  //   @ApiOperation({ summary: 'Logout and end the active session' })
+  //   logout(@Req() req: any) {
+  //     return this.auth.logout(req.user.userId, req.user.sessionId);
+  //   }
 }
+
