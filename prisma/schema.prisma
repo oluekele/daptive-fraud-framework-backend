@@ -1,8 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Get a free hosted Postgres database in seconds: `npx create-db`
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -13,146 +8,108 @@ datasource db {
 }
 
 model Session {
-  id          String @id @default(uuid())
-
-  userId      String
-
-  user        User @relation(fields:[userId], references:[id])
-
-  userAgent   String?
-
-  ipAddress   String?
-
-  startedAt   DateTime @default(now())
-
-  endedAt     DateTime?
-
-  telemetry   Telemetry[]
-
-  features    Feature[]
-
-  riskScores  RiskScore[]
-
-  predictions Prediction[]
-
+  id           String        @id @default(uuid())
+  userId       String
+  startedAt    DateTime      @default(now())
+  endedAt      DateTime?
+  ipAddress    String?
+  userAgent    String?
+  /// Ground-truth label for training (set by admin/user workflow)
+  /// Examples: "human" | "bot" | "other"
+  label        String?
   decisionLogs DecisionLog[]
+  features     Feature[]
+  predictions  Prediction[]
+  riskScores   RiskScore[]
+  user         User          @relation(fields: [userId], references: [id])
+  telemetry    Telemetry[]
 }
 
 model Telemetry {
-  id          String @id @default(uuid())
-
-  sessionId   String
-
-  session     Session @relation(fields:[sessionId], references:[id])
-
-  eventType   String
-
-  payload     Json
-
-  createdAt   DateTime @default(now())
+  id        String   @id @default(uuid())
+  sessionId String
+  eventType String
+  payload   Json
+  createdAt DateTime @default(now())
+  session   Session  @relation(fields: [sessionId], references: [id])
 }
 
 model Prediction {
-  id               String @id @default(uuid())
-
+  id               String        @id @default(uuid())
   sessionId        String
-
-  session          Session @relation(fields:[sessionId], references:[id])
-
-  featureId        String?
-
-  feature          Feature? @relation(fields:[featureId], references:[id])
-
   modelName        String
-
   fraudProbability Float
-
+  createdAt        DateTime      @default(now())
   anomalyScore     Float?
-
+  featureId        String?
   reasons          Json?
-
-  createdAt        DateTime @default(now())
-
-  riskScores       RiskScore[]
-
   decisionLogs     DecisionLog[]
+  feature          Feature?      @relation(fields: [featureId], references: [id])
+  session          Session       @relation(fields: [sessionId], references: [id])
+  riskScores       RiskScore[]
 }
 
 model Feature {
-  id                String @id @default(uuid())
-
-  sessionId         String
-
-  session           Session @relation(fields:[sessionId], references:[id])
-
-  avgDwellTime      Float?
-
-  avgFlightTime     Float?
-
-  avgMouseSpeed     Float?
-
-  avgMouseAcceleration Float?
-
-  clickFrequency    Float?
-
-  avgScrollRate     Float?
-
-  idleTime          Float?
-
-  typingSpeed       Float?
-
-  createdAt         DateTime @default(now())
-
-  predictions       Prediction[]
+  id                     String       @id @default(uuid())
+  sessionId              String
+  /// ===== Legacy/old fields (kept for compatibility) =====
+  avgDwellTime           Float?
+  avgFlightTime          Float?
+  avgMouseSpeed          Float?
+  avgScrollRate          Float?
+  typingSpeed            Float?
+  createdAt              DateTime     @default(now())
+  avgMouseAcceleration   Float?
+  clickFrequency         Float?
+  idleTime               Float?
+  avgScrollSpeed         Float?
+  clickRate              Float?
+  /// ===== Training vector for ML =====
+  durationSeconds        Float?
+  eventRate              Float?
+  idleTimeSeconds        Float?
+  keyboardEvents         Float?
+  keystrokesPerSecond    Float?
+  maxMouseSpeed          Float?
+  mouseClicks            Float?
+  mouseDistance          Float?
+  mouseMoves             Float?
+  scrollDepth            Float?
+  scrollDirectionChanges Float?
+  scrollEvents           Float?
+  session                Session      @relation(fields: [sessionId], references: [id])
+  predictions            Prediction[]
 }
 
 model RiskScore {
-  id          String @id @default(uuid())
-
-  sessionId   String
-
-  session     Session @relation(fields:[sessionId], references:[id])
-
+  id           String        @id @default(uuid())
+  sessionId    String
+  score        Float
+  level        String
+  createdAt    DateTime      @default(now())
   predictionId String?
-
-  prediction   Prediction? @relation(fields:[predictionId], references:[id])
-
-  score       Float
-
-  level       String
-
-  createdAt   DateTime @default(now())
-
   decisionLogs DecisionLog[]
+  prediction   Prediction?   @relation(fields: [predictionId], references: [id])
+  session      Session       @relation(fields: [sessionId], references: [id])
 }
 
 model DecisionLog {
-  id           String @id @default(uuid())
-
+  id           String      @id @default(uuid())
   sessionId    String
-
-  session      Session @relation(fields:[sessionId], references:[id])
-
   predictionId String?
-
-  prediction   Prediction? @relation(fields:[predictionId], references:[id])
-
   riskScoreId  String?
-
-  riskScore    RiskScore? @relation(fields:[riskScoreId], references:[id])
-
   decision     String
-
   reason       String?
-
-  createdAt    DateTime @default(now())
+  createdAt    DateTime    @default(now())
+  prediction   Prediction? @relation(fields: [predictionId], references: [id])
+  riskScore    RiskScore?  @relation(fields: [riskScoreId], references: [id])
+  session      Session     @relation(fields: [sessionId], references: [id])
 }
 
 model User {
-  id           String   @id @default(uuid())
-  email        String   @unique
+  id           String    @id @default(uuid())
+  email        String    @unique
   passwordHash String
-  createdAt    DateTime @default(now())
-
+  createdAt    DateTime  @default(now())
   sessions     Session[]
 }

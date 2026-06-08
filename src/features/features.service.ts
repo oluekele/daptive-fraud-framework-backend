@@ -13,20 +13,36 @@ type Point = {
   timestamp: number;
 };
 
-export type BehavioralFeatureVector = {
-  avgDwellTime: number | null;
-  avgFlightTime: number | null;
-  avgMouseSpeed: number | null;
-  avgMouseAcceleration: number | null;
-  clickFrequency: number | null;
-  avgScrollRate: number | null;
-  idleTime: number | null;
-  typingSpeed: number | null;
+type ScrollPoint = {
+  y: number;
+  timestamp: number;
+};
+
+export type TrainingVectorWrapper = {
+  session_id: string;
+  features: {
+    duration_seconds: number | null;
+    mouse_moves: number;
+    mouse_clicks: number;
+    scroll_events: number;
+    keyboard_events: number;
+    idle_time_seconds: number;
+    mouse_distance: number;
+    avg_mouse_speed: number | null;
+    max_mouse_speed: number | null;
+    avg_scroll_speed: number | null;
+    scroll_depth: number | null;
+    scroll_direction_changes: number;
+    keystrokes_per_second: number | null;
+    click_rate: number | null;
+    event_rate: number | null;
+  };
+  label: 'human' | 'bot' | 'other' | null;
 };
 
 @Injectable()
 export class FeaturesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) { }
 
   async generateAndStoreFeatures(userId: string, sessionId: string) {
     await this.assertSessionOwner(userId, sessionId);
@@ -41,27 +57,100 @@ export class FeaturesService {
       },
     });
 
-    const features = this.extractFeatures(events);
+    const legacyFeatures = this.extractFeatures(events);
+    const vector = this.extractTrainingVector(events);
 
     return this.prisma.feature.create({
       data: {
         sessionId,
-        ...features,
+        ...legacyFeatures,
+        ...vector,
       },
       select: {
         id: true,
         sessionId: true,
-        avgDwellTime: true,
-        avgFlightTime: true,
+        durationSeconds: true,
+        mouseMoves: true,
+        mouseClicks: true,
+        scrollEvents: true,
+        keyboardEvents: true,
+        idleTimeSeconds: true,
+        mouseDistance: true,
         avgMouseSpeed: true,
-        avgMouseAcceleration: true,
-        clickFrequency: true,
-        avgScrollRate: true,
-        idleTime: true,
-        typingSpeed: true,
+        maxMouseSpeed: true,
+        avgScrollSpeed: true,
+        scrollDepth: true,
+        scrollDirectionChanges: true,
+        keystrokesPerSecond: true,
+        clickRate: true,
+        eventRate: true,
         createdAt: true,
       },
     });
+  }
+
+  async getTrainingVectorWrapper(
+    userId: string,
+    sessionId: string,
+  ): Promise<TrainingVectorWrapper> {
+    await this.assertSessionOwner(userId, sessionId);
+
+    const feature = await this.prisma.feature.findFirst({
+      where: { sessionId },
+      orderBy: { createdAt: 'desc' },
+      select: {
+        durationSeconds: true,
+        mouseMoves: true,
+        mouseClicks: true,
+        scrollEvents: true,
+        keyboardEvents: true,
+        idleTimeSeconds: true,
+        mouseDistance: true,
+        avgMouseSpeed: true,
+        maxMouseSpeed: true,
+        avgScrollSpeed: true,
+        scrollDepth: true,
+        scrollDirectionChanges: true,
+        keystrokesPerSecond: true,
+        clickRate: true,
+        eventRate: true,
+      },
+    });
+
+    // Session owner check already handled by assertSessionOwner.
+    const session = await this.prisma.session.findFirst({
+      where: { id: sessionId, userId },
+      select: { id: true, label: true },
+    });
+
+    if (!session) {
+      throw new NotFoundException(`Session with ID "${sessionId}" not found`);
+    }
+
+    // If features haven't been generated yet, return null-ish values but keep shape.
+    const f = feature;
+
+    return {
+      session_id: sessionId,
+      features: {
+        duration_seconds: f?.durationSeconds ?? null,
+        mouse_moves: f?.mouseMoves ?? 0,
+        mouse_clicks: f?.mouseClicks ?? 0,
+        scroll_events: f?.scrollEvents ?? 0,
+        keyboard_events: f?.keyboardEvents ?? 0,
+        idle_time_seconds: f?.idleTimeSeconds ?? 0,
+        mouse_distance: f?.mouseDistance ?? 0,
+        avg_mouse_speed: f?.avgMouseSpeed ?? null,
+        max_mouse_speed: f?.maxMouseSpeed ?? null,
+        avg_scroll_speed: f?.avgScrollSpeed ?? null,
+        scroll_depth: f?.scrollDepth ?? null,
+        scroll_direction_changes: f?.scrollDirectionChanges ?? 0,
+        keystrokes_per_second: f?.keystrokesPerSecond ?? null,
+        click_rate: f?.clickRate ?? null,
+        event_rate: f?.eventRate ?? null,
+      },
+      label: session.label as any,
+    };
   }
 
   async retrieveFeatures(userId: string, sessionId: string) {
@@ -84,6 +173,152 @@ export class FeaturesService {
         createdAt: true,
       },
     });
+  }
+
+  extractTrainingVector(events: TelemetryEvent[]): {
+    durationSeconds: number | null;
+    mouseMoves: number;
+    mouseClicks: number;
+    scrollEvents: number;
+    keyboardEvents: number;
+    idleTimeSeconds: number;
+    mouseDistance: number;
+    avgMouseSpeed: number | null;
+    maxMouseSpeed: number | null;
+    avgScrollSpeed: number | null;
+    scrollDepth: number | null;
+    scrollDirectionChanges: number;
+    keystrokesPerSecond: number | null;
+    clickRate: number | null;
+    eventRate: number | null;
+  } {
+    const firstTime = events.length ? this.getEventTime(events[0]) : null;
+    const lastTime = events.length
+      ? this.getEventTime(events[events.length - 1])
+      : null;
+
+    const durationSeconds =
+      firstTime !== null && lastTime !== null
+        ? Math.max(0, (lastTime - firstTime) / 1000)
+        : null;
+
+    const keyboardEvents = events.filter((e) =>
+      ['keydown', 'keyup'].includes(e.eventType),
+    );
+    const keydownEvents = keyboardEvents.filter(
+      (e) => e.eventType === 'keydown',
+    );
+
+    const mouseMoveEvents = events.filter((e) => e.eventType === 'mouse_move');
+    const mouseClickEvents = events.filter(
+      (e) => e.eventType === 'mouse_click',
+    );
+    const scrollEvents = events.filter((e) => e.eventType === 'scroll');
+    const idleEvents = events.filter((e) => e.eventType === 'idle_activity');
+
+    const mouseMoves = mouseMoveEvents.length;
+    const mouseClicks = mouseClickEvents.length;
+    const scrollEventsCount = scrollEvents.length;
+    const keyboardEventsCount = keyboardEvents.length;
+
+    // idle_time_seconds from payload durationMs|idleMs|duration (ms)
+    const idleTimeMs = idleEvents
+      .map((e) =>
+        this.getPayloadNumber(e.payload, ['durationMs', 'idleMs', 'duration']),
+      )
+      .filter((v): v is number => v !== null && v > 0);
+
+    const idleTimeSeconds =
+      idleTimeMs.length > 0 ? idleTimeMs.reduce((a, b) => a + b, 0) / 1000 : 0;
+
+    // Mouse points for distance/speed
+    const mousePoints = mouseMoveEvents
+      .map((e) => this.toPoint(e))
+      .filter((p): p is Point => Boolean(p));
+
+    let mouseDistance = 0;
+    const mouseSpeeds: number[] = [];
+
+    for (let i = 1; i < mousePoints.length; i += 1) {
+      const prev = mousePoints[i - 1];
+      const cur = mousePoints[i];
+      const dt = (cur.timestamp - prev.timestamp) / 1000;
+      if (dt <= 0) continue;
+      const dist = Math.hypot(cur.x - prev.x, cur.y - prev.y);
+      mouseDistance += dist;
+      mouseSpeeds.push(dist / dt);
+    }
+
+    const avgMouseSpeed = mouseSpeeds.length ? this.average(mouseSpeeds) : null;
+    const maxMouseSpeed = mouseSpeeds.length ? Math.max(...mouseSpeeds) : null;
+
+    // Scroll points for depth/speed/direction
+    const scrollPoints = scrollEvents
+      .map((e) => this.toScrollPoint(e))
+      .filter((p): p is Point => Boolean(p));
+
+    let scrollDepth = 0;
+    const scrollSpeeds: number[] = [];
+    let scrollDirectionChanges = 0;
+
+    let prevSign: number | null = null;
+
+    for (let i = 1; i < scrollPoints.length; i += 1) {
+      const prev = scrollPoints[i - 1];
+      const cur = scrollPoints[i];
+      const deltaY = cur.y - prev.y;
+      const dt = (cur.timestamp - prev.timestamp) / 1000;
+
+      scrollDepth += Math.abs(deltaY);
+
+      if (dt > 0) {
+        // speed as abs(deltaY)/dt
+        scrollSpeeds.push(Math.abs(deltaY) / dt);
+      }
+
+      const sign = deltaY === 0 ? null : Math.sign(deltaY);
+      if (sign !== null) {
+        if (prevSign !== null && sign !== prevSign) {
+          scrollDirectionChanges += 1;
+        }
+        prevSign = sign;
+      }
+    }
+
+    const avgScrollSpeed = scrollSpeeds.length
+      ? this.average(scrollSpeeds)
+      : null;
+
+    const eventCount = events.length;
+    const durationForRates =
+      durationSeconds && durationSeconds > 0 ? durationSeconds : null;
+
+    const keystrokesPerSecond =
+      durationForRates !== null ? keyboardEventsCount / durationForRates : null;
+
+    const clickRate =
+      durationForRates !== null ? mouseClicks / durationForRates : null;
+
+    const eventRate =
+      durationForRates !== null ? eventCount / durationForRates : null;
+
+    return {
+      durationSeconds,
+      mouseMoves,
+      mouseClicks,
+      scrollEvents: scrollEventsCount,
+      keyboardEvents: keyboardEventsCount,
+      idleTimeSeconds,
+      mouseDistance,
+      avgMouseSpeed,
+      maxMouseSpeed,
+      avgScrollSpeed,
+      scrollDepth,
+      scrollDirectionChanges,
+      keystrokesPerSecond,
+      clickRate,
+      eventRate,
+    };
   }
 
   extractFeatures(events: TelemetryEvent[]) {
@@ -226,7 +461,9 @@ export class FeaturesService {
         continue;
       }
 
-      accelerations.push(Math.abs(speeds[index] - speeds[index - 1]) / elapsedSeconds);
+      accelerations.push(
+        Math.abs(speeds[index] - speeds[index - 1]) / elapsedSeconds,
+      );
     }
 
     return accelerations;

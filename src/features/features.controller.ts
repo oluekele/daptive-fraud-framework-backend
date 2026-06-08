@@ -41,6 +41,18 @@ export class FeaturesController {
     );
   }
 
+  @Get('training-vector')
+  @ApiOperation({
+    summary: 'Return ML training vector wrapper for the active session',
+  })
+  @ApiOkResponse({ description: 'Training vector returned.' })
+  trainingVector(@Req() req: AuthenticatedRequest) {
+    return this.features.getTrainingVectorWrapper(
+      req.user!.userId,
+      req.user!.sessionId,
+    );
+  }
+
   @Get()
   @ApiOperation({ summary: 'Retrieve stored features for the active session' })
   @ApiOkResponse({ description: 'Stored features returned.' })

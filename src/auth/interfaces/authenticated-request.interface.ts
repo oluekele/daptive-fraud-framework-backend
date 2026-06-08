@@ -9,4 +9,3 @@ export type AuthenticatedRequest = ExpressRequest<any, any, any, ParsedQs> & {
     email?: string;
   };
 };
-
