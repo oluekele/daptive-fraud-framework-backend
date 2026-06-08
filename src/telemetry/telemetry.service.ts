@@ -7,8 +7,7 @@ import { TelemetryEventDto } from './dto/telemetry-event.dto';
 export class TelemetryService {
   private readonly logger = new Logger(TelemetryService.name);
 
-  constructor(private readonly prisma: PrismaService) { }
-
+  constructor(private readonly prisma: PrismaService) {}
 
   async storeEvent(sessionId: string, dto: TelemetryEventDto) {
     try {
@@ -40,7 +39,6 @@ export class TelemetryService {
       throw err;
     }
   }
-
 
   async retrieveTelemetry(
     userId: string,
@@ -132,7 +130,6 @@ export class TelemetryService {
   }
 
   private async assertSessionOwner(userId: string, sessionId: string) {
-
     const session = await this.prisma.session.findFirst({
       where: { id: sessionId, userId },
       select: { id: true },

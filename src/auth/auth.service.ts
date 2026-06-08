@@ -12,7 +12,7 @@ export class AuthService {
   constructor(
     private prisma: PrismaService,
     private jwt: JwtService,
-  ) { }
+  ) {}
 
   async logout(userId: string, sessionId: string) {
     await this.prisma.session.updateMany({

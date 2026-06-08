@@ -3,7 +3,8 @@ import { IsBoolean, IsOptional, IsString } from 'class-validator';
 
 export class DatasetBySessionDto {
   @ApiProperty({
-    description: 'Optional sessionId. If omitted, dataset is built for all owned sessions.',
+    description:
+      'Optional sessionId. If omitted, dataset is built for all owned sessions.',
     required: false,
     example: '6a60f6f1-b97e-4906-b947-03ee8d7ac90d',
   })
@@ -20,4 +21,3 @@ export class DatasetBySessionDto {
   @IsBoolean()
   includeEvents?: boolean;
 }
-

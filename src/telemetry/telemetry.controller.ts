@@ -24,7 +24,7 @@ import type { AuthenticatedRequest } from '../auth/interfaces/authenticated-requ
 @ApiTags('telemetry')
 @Controller('telemetry')
 export class TelemetryController {
-  constructor(private readonly telemetry: TelemetryService) { }
+  constructor(private readonly telemetry: TelemetryService) {}
 
   @Post()
   @UseGuards(JwtAuthGuard)
@@ -120,13 +120,14 @@ export class TelemetryController {
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({
-    summary: 'Generate telemetry datasets for ALL sessions owned by the authenticated user',
+    summary:
+      'Generate telemetry datasets for ALL sessions owned by the authenticated user',
   })
   @ApiOkResponse({
-    description: 'Telemetry datasets for all sessions generated from stored events.',
+    description:
+      'Telemetry datasets for all sessions generated from stored events.',
   })
   async datasets(@Req() req: AuthenticatedRequest) {
     return this.telemetry.buildDatasetsForUser(req.user!.userId);
   }
 }
-

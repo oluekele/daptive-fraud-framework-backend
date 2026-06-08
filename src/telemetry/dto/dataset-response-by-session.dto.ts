@@ -5,7 +5,6 @@ import { IsOptional, IsString } from 'class-validator';
 // This DTO is only for documentation / optional runtime validation.
 
 export class DatasetSessionSummaryDto {
-
   @ApiProperty({ example: '6a60f6f1-b97e-4906-b947-03ee8d7ac90d' })
   @IsString()
   sessionId!: string;
@@ -40,7 +39,6 @@ export class DatasetSessionSummaryDto {
   @ApiProperty({ required: false, example: [] })
   @IsOptional()
   events?: unknown[];
-
 }
 
 export class DatasetResponseBySessionDto {
@@ -56,4 +54,3 @@ export class DatasetResponseBySessionDto {
   @ApiProperty({ example: [] })
   sessions!: DatasetSessionSummaryDto[];
 }
-

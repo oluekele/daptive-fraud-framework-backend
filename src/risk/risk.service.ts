@@ -27,7 +27,7 @@ export class RiskService {
     const telemetryCount = await this.prisma.telemetry.count({
       where: { sessionId },
     });
-    const score = this.calculateRiskScore(featureSet, telemetryCount);
+    const score = this.calculateRiskScore(featureSet as any, telemetryCount);
     const level = this.getRiskLevel(score);
 
     const risk = await this.prisma.riskScore.create({
@@ -67,7 +67,16 @@ export class RiskService {
     });
   }
 
-  calculateRiskScore(features: RiskFeatureInput, telemetryCount: number) {
+  calculateRiskScore(
+    features: {
+      avgDwellTime: number | null;
+      avgFlightTime: number | null;
+      avgMouseSpeed: number | null;
+      avgScrollRate: number | null;
+      typingSpeed: number | null;
+    },
+    telemetryCount: number,
+  ) {
     let score = 5;
 
     if (telemetryCount < 5) {
