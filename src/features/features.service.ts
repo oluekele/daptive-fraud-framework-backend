@@ -40,6 +40,25 @@ export type TrainingVectorWrapper = {
   label: 'human' | 'bot' | 'other' | null;
 };
 
+export type TrainingRecord = {
+  session_id: string;
+  duration_seconds: number | null;
+  mouse_moves: number;
+  mouse_clicks: number;
+  scroll_events: number;
+  keyboard_events: number;
+  avg_mouse_speed: number | null;
+  max_mouse_speed: number | null;
+  avg_scroll_speed: number | null;
+  scroll_direction_changes: number;
+  idle_time_seconds: number;
+  keystrokes_per_second: number | null;
+  mouse_distance: number;
+  click_rate: number | null;
+  event_rate: number | null;
+  risk_label: 'legitimate' | 'suspicious' | 'unknown';
+};
+
 @Injectable()
 export class FeaturesService {
   constructor(private readonly prisma: PrismaService) { }
@@ -48,6 +67,7 @@ export class FeaturesService {
     await this.assertSessionOwner(userId, sessionId);
 
     const events = await this.prisma.telemetry.findMany({
+
       where: { sessionId },
       orderBy: { createdAt: 'asc' },
       select: {
@@ -89,8 +109,111 @@ export class FeaturesService {
     });
   }
 
-  async getTrainingVectorWrapper(
+  async generateAndStoreFeaturesForAllSessions(userId: string) {
+    // Sessions owned by this user
+    const sessions = await this.prisma.session.findMany({
+      where: { userId },
+      select: { id: true },
+      orderBy: { startedAt: 'desc' },
+    });
+
+    // Nothing to do
+    if (!sessions.length) {
+      return [];
+    }
+
+    // Backfill each session.
+    // Feature table currently allows multiple rows per sessionId,
+    // so we clear existing rows for that session to avoid duplicates.
+    const results: Array<{ sessionId: string }> = [];
+
+    for (const { id: sessionId } of sessions) {
+      await this.prisma.feature.deleteMany({ where: { sessionId } });
+      await this.generateAndStoreFeatures(userId, sessionId);
+      results.push({ sessionId });
+    }
+
+    return results;
+  }
+
+  async getTrainingVectorWrappersForAllSessions(
     userId: string,
+    onlyLabeled: boolean,
+  ) {
+    // fetch all sessions for user
+    const sessions = await this.prisma.session.findMany({
+      where: onlyLabeled ? { userId, label: { not: null } } : { userId },
+      select: { id: true, label: true },
+    });
+
+    if (!sessions.length) return [];
+
+    const sessionIds = sessions.map((s) => s.id);
+
+    // fetch latest Feature per sessionId (active vectors)
+    // since Feature has no unique constraint, we take the most recent by createdAt.
+    const features = await this.prisma.feature.findMany({
+      where: { sessionId: { in: sessionIds } },
+      orderBy: { createdAt: 'desc' },
+      select: {
+        sessionId: true,
+        durationSeconds: true,
+        mouseMoves: true,
+        mouseClicks: true,
+        scrollEvents: true,
+        keyboardEvents: true,
+        idleTimeSeconds: true,
+        mouseDistance: true,
+        avgMouseSpeed: true,
+        maxMouseSpeed: true,
+        avgScrollSpeed: true,
+        scrollDepth: true,
+        scrollDirectionChanges: true,
+        keystrokesPerSecond: true,
+        clickRate: true,
+        eventRate: true,
+        createdAt: true,
+      },
+    });
+
+    // reduce to first feature row per sessionId (because of desc order)
+    const bySession = new Map<string, (typeof features)[number]>();
+    for (const f of features) {
+      if (!bySession.has(f.sessionId)) {
+        bySession.set(f.sessionId, f);
+      }
+    }
+
+    return sessions.map((s) => {
+      const f = bySession.get(s.id);
+      return {
+        session_id: s.id,
+        label: s.label as any,
+        features: {
+          duration_seconds: f?.durationSeconds ?? null,
+          mouse_moves: f?.mouseMoves ?? 0,
+          mouse_clicks: f?.mouseClicks ?? 0,
+          scroll_events: f?.scrollEvents ?? 0,
+          keyboard_events: f?.keyboardEvents ?? 0,
+          idle_time_seconds: f?.idleTimeSeconds ?? 0,
+          mouse_distance: f?.mouseDistance ?? 0,
+          avg_mouse_speed: f?.avgMouseSpeed ?? null,
+          max_mouse_speed: f?.maxMouseSpeed ?? null,
+          avg_scroll_speed: f?.avgScrollSpeed ?? null,
+          scroll_depth: f?.scrollDepth ?? null,
+          scroll_direction_changes: f?.scrollDirectionChanges ?? 0,
+          keystrokes_per_second: f?.keystrokesPerSecond ?? null,
+          click_rate: f?.clickRate ?? null,
+          event_rate: f?.eventRate ?? null,
+        },
+      };
+    });
+  }
+
+  async getTrainingVectorWrapper(
+
+    userId: string,
+
     sessionId: string,
   ): Promise<TrainingVectorWrapper> {
     await this.assertSessionOwner(userId, sessionId);
@@ -151,6 +274,79 @@ export class FeaturesService {
       },
       label: session.label as any,
     };
+  }
+
+  buildTrainingRecord(
+    events: TelemetryEvent[],
+    options: {
+      sessionId?: string;
+      riskLevel?: string | null;
+      riskLabel?: string | null;
+    } = {},
+  ): TrainingRecord {
+    const vector = this.extractTrainingVector(events);
+
+    return {
+      session_id: options.sessionId ?? '',
+      duration_seconds: vector.durationSeconds,
+      mouse_moves: vector.mouseMoves,
+      mouse_clicks: vector.mouseClicks,
+      scroll_events: vector.scrollEvents,
+      keyboard_events: vector.keyboardEvents,
+      avg_mouse_speed: vector.avgMouseSpeed,
+      max_mouse_speed: vector.maxMouseSpeed,
+      avg_scroll_speed: vector.avgScrollSpeed,
+      scroll_direction_changes: vector.scrollDirectionChanges,
+      idle_time_seconds: vector.idleTimeSeconds,
+      keystrokes_per_second: vector.keystrokesPerSecond,
+      mouse_distance: vector.mouseDistance,
+      click_rate: vector.clickRate,
+      event_rate: vector.eventRate,
+      risk_label: this.toRiskLabel(options.riskLabel ?? options.riskLevel ?? null),
+    };
+  }
+
+  async getTrainingSummary(userId: string, sessionId: string): Promise<TrainingRecord> {
+    await this.assertSessionOwner(userId, sessionId);
+
+    const [events, latestRisk, session] = await Promise.all([
+      this.prisma.telemetry.findMany({
+        where: { sessionId },
+        orderBy: { createdAt: 'asc' },
+        select: {
+          eventType: true,
+          payload: true,
+          createdAt: true,
+        },
+      }),
+      this.prisma.riskScore.findFirst({
+        where: { sessionId },
+        orderBy: { createdAt: 'desc' },
+        select: { level: true },
+      }),
+      this.prisma.session.findFirst({
+        where: { id: sessionId, userId },
+        select: { id: true, label: true },
+      }),
+    ]);
+
+    return this.buildTrainingRecord(events, {
+      sessionId,
+      riskLevel: latestRisk?.level ?? null,
+      riskLabel: session?.label ?? null,
+    });
+  }
+
+  async getTrainingSummariesForAllSessions(userId: string) {
+    const sessions = await this.prisma.session.findMany({
+      where: { userId },
+      select: { id: true },
+      orderBy: { startedAt: 'desc' },
+    });
+
+    return Promise.all(
+      sessions.map(({ id }) => this.getTrainingSummary(userId, id)),
+    );
   }
 
   async retrieveFeatures(userId: string, sessionId: string) {
@@ -605,6 +801,20 @@ export class FeaturesService {
     }
 
     return values.reduce((sum, value) => sum + value, 0) / values.length;
+  }
+
+  private toRiskLabel(value: string | null | undefined): TrainingRecord['risk_label'] {
+    const normalized = (value ?? '').toLowerCase();
+
+    if (['human', 'legitimate', 'safe', 'low'].includes(normalized)) {
+      return 'legitimate';
+    }
+
+    if (['bot', 'suspicious', 'anomalous', 'medium', 'high', 'critical'].includes(normalized)) {
+      return 'suspicious';
+    }
+
+    return 'unknown';
   }
 
   private async assertSessionOwner(userId: string, sessionId: string) {

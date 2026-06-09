@@ -187,6 +187,8 @@ The API provides the following endpoints:
 - `POST /features/generate` - Generate and store behavioral features for a session
 - `GET /features` - Retrieve stored features for the active session
 - `GET /features/session/:sessionId` - Retrieve stored features for an owned session
+- `GET /features/training-summary` - Return the flattened ML-ready training summary for the active session
+- `POST /features/training-summary/all` - Return flattened training summaries for all sessions owned by the authenticated user
 
 ### Risk (`/risk`)
 - `POST /risk/calculate` - Generate features, calculate risk, save the score, and return the level
@@ -205,6 +207,7 @@ Session -> Telemetry -> Feature Extraction -> Risk Engine
 2. `POST /telemetry` stores raw behavioral events against the active JWT session.
 3. `POST /features/generate` computes and stores average dwell time, average flight time, average mouse speed, average scroll rate, and typing speed.
 4. `POST /risk/calculate` generates fresh features, scores the session from `0` to `100`, stores the score, and returns `low`, `medium`, `high`, or `critical`.
+5. `GET /features/training-summary` exposes a flattened training record for downstream machine-learning workflows.
 
 ### Swagger Documentation
 - `GET /docs` - Interactive API documentation

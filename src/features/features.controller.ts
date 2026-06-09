@@ -17,6 +17,8 @@ import {
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import type { AuthenticatedRequest } from '../auth/interfaces/authenticated-request.interface';
 import { GenerateFeaturesDto } from './dto/generate-features.dto';
+import { GenerateFeaturesAllDto } from './dto/generate-features-all.dto';
+import { ExportTrainingVectorsDto } from './dto/export-training-vectors.dto';
 import { FeaturesService } from './features.service';
 
 @ApiTags('features')
@@ -24,7 +26,7 @@ import { FeaturesService } from './features.service';
 @UseGuards(JwtAuthGuard)
 @ApiBearerAuth()
 export class FeaturesController {
-  constructor(private readonly features: FeaturesService) {}
+  constructor(private readonly features: FeaturesService) { }
 
   @Post('generate')
   @ApiOperation({
@@ -41,6 +43,19 @@ export class FeaturesController {
     );
   }
 
+  @Post('generate/all')
+  @ApiOperation({
+    summary: 'Backfill behavioral features for all sessions owned by the authenticated user',
+  })
+  @ApiCreatedResponse({ description: 'Features generated for all sessions.' })
+  generateAllFeatures(
+    @Body() dto: GenerateFeaturesAllDto,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    return this.features.generateAndStoreFeaturesForAllSessions(req.user!.userId);
+  }
+
+
   @Get('training-vector')
   @ApiOperation({
     summary: 'Return ML training vector wrapper for the active session',
@@ -51,6 +66,42 @@ export class FeaturesController {
       req.user!.userId,
       req.user!.sessionId,
     );
+  }
+
+  @Post('training-vector/all')
+  @ApiOperation({
+    summary: 'Export ML training vectors for all sessions owned by the authenticated user',
+  })
+  @ApiOkResponse({ description: 'Training vectors returned.' })
+  trainingVectorAll(
+    @Body() dto: ExportTrainingVectorsDto,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    return this.features.getTrainingVectorWrappersForAllSessions(
+      req.user!.userId,
+      dto?.onlyLabeled ?? false,
+    );
+  }
+
+  @Get('training-summary')
+  @ApiOperation({
+    summary: 'Return the flattened ML training summary for the active session',
+  })
+  @ApiOkResponse({ description: 'Training summary returned.' })
+  trainingSummary(@Req() req: AuthenticatedRequest) {
+    return this.features.getTrainingSummary(
+      req.user!.userId,
+      req.user!.sessionId,
+    );
+  }
+
+  @Post('training-summary/all')
+  @ApiOperation({
+    summary: 'Return flattened ML training summaries for all sessions owned by the authenticated user',
+  })
+  @ApiOkResponse({ description: 'Training summaries returned.' })
+  trainingSummaryAll(@Req() req: AuthenticatedRequest) {
+    return this.features.getTrainingSummariesForAllSessions(req.user!.userId);
   }
 
   @Get()
@@ -72,4 +123,6 @@ export class FeaturesController {
   ) {
     return this.features.retrieveFeatures(req.user!.userId, sessionId);
   }
+
 }
+
