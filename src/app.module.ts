@@ -8,6 +8,7 @@ import { SessionsModule } from './sessions/sessions.module';
 import { TelemetryModule } from './telemetry/telemetry.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { FeaturesModule } from './features/features.module';
+import { PredictController } from './predict/predict.controller';
 import { RiskModule } from './risk/risk.module';
 
 @Module({
@@ -24,7 +25,7 @@ import { RiskModule } from './risk/risk.module';
     FeaturesModule,
     RiskModule,
   ],
-  controllers: [AppController],
+  controllers: [AppController, PredictController],
   providers: [AppService],
 })
-export class AppModule {}
+export class AppModule { }

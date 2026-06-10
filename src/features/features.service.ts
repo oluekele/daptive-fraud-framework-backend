@@ -349,29 +349,105 @@ export class FeaturesService {
     );
   }
 
-  async deleteFeature(userId: string, featureId: string) {
+  async deleteFeature(userId: string, sessionId: string) {
     const feature = await this.prisma.feature.findUnique({
-      where: { id: featureId },
+      where: { id: sessionId },
       select: { id: true, sessionId: true },
     });
 
-    if (!feature) {
-      throw new NotFoundException(`Feature with ID "${featureId}" not found`);
+    if (feature) {
+      await this.assertSessionOwner(userId, feature.sessionId);
+
+      await this.prisma.$transaction([
+        this.prisma.prediction.updateMany({
+          where: { featureId: feature.id },
+          data: { featureId: null },
+        }),
+        this.prisma.feature.delete({
+          where: { id: feature.id },
+        }),
+      ]);
+
+      return { success: true, featureId: feature.id };
     }
 
-    await this.assertSessionOwner(userId, feature.sessionId);
+    await this.assertSessionOwner(userId, sessionId);
+
+    const features = await this.prisma.feature.findMany({
+      where: { sessionId },
+      select: { id: true, sessionId: true },
+    });
+
+    if (!features.length) {
+      throw new NotFoundException(`No features found for session "${sessionId}"`);
+    }
+
+    const featureIds = features.map(({ id }) => id);
 
     await this.prisma.$transaction([
       this.prisma.prediction.updateMany({
-        where: { featureId },
+        where: { featureId: { in: featureIds } },
         data: { featureId: null },
       }),
-      this.prisma.feature.delete({
-        where: { id: featureId },
+      this.prisma.feature.deleteMany({
+        where: { sessionId },
       }),
     ]);
 
-    return { success: true, featureId };
+    return { success: true, sessionId, deletedCount: featureIds.length };
+  }
+
+  async exportTrainingCsv(userId: string, onlyLabeled = false) {
+    const sessions = await this.prisma.session.findMany({
+      where: onlyLabeled ? { userId, label: { not: null } } : { userId },
+      select: { id: true, label: true },
+      orderBy: { startedAt: 'desc' },
+    });
+
+    const summaries = await Promise.all(
+      sessions.map(async (session) => {
+        const summary = await this.getTrainingSummary(userId, session.id);
+        return {
+          ...summary,
+          session_id: session.id,
+          label: session.label ?? '',
+        };
+      }),
+    );
+
+    const headers = [
+      'session_id',
+      'label',
+      'duration_seconds',
+      'mouse_moves',
+      'mouse_clicks',
+      'scroll_events',
+      'keyboard_events',
+      'avg_mouse_speed',
+      'max_mouse_speed',
+      'avg_scroll_speed',
+      'scroll_depth',
+      'scroll_direction_changes',
+      'idle_time_seconds',
+      'keystrokes_per_second',
+      'click_rate',
+      'event_rate',
+      'risk_label',
+    ];
+
+    const rows = summaries.map((summary) =>
+      headers
+        .map((header) => {
+          const value = summary[header as keyof typeof summary];
+          const normalized = value === null || value === undefined ? '' : String(value);
+          return normalized.includes(',') || normalized.includes('"') || normalized.includes('\n')
+            ? `"${normalized.replace(/"/g, '""')}"`
+            : normalized;
+        })
+        .join(','),
+    );
+
+    return [headers.join(','), ...rows].join('\n');
   }
 
   async retrieveFeatures(userId: string, sessionId: string) {
@@ -496,8 +572,10 @@ export class FeaturesService {
         // speed as abs(deltaY)/dt
         scrollSpeeds.push(Math.abs(deltaY) / dt);
       }
+    }
 
-      const sign = deltaY === 0 ? null : Math.sign(deltaY);
+    for (const point of scrollPoints) {
+      const sign = point.y === 0 ? null : Math.sign(point.y);
       if (sign !== null) {
         if (prevSign !== null && sign !== prevSign) {
           scrollDirectionChanges += 1;
@@ -506,13 +584,16 @@ export class FeaturesService {
       }
     }
 
-    const avgScrollSpeed = scrollSpeeds.length
-      ? this.average(scrollSpeeds)
-      : null;
-
     const eventCount = events.length;
     const durationForRates =
       durationSeconds && durationSeconds > 0 ? durationSeconds : null;
+
+    const avgScrollSpeed =
+      scrollPoints.length > 0 && durationForRates !== null
+        ? scrollDepth / Math.max(1, scrollPoints.length - 1) / durationForRates
+        : scrollSpeeds.length
+          ? this.average(scrollSpeeds)
+          : null;
 
     const keystrokesPerSecond =
       durationForRates !== null ? keyboardEventsCount / durationForRates : null;
@@ -744,19 +825,17 @@ export class FeaturesService {
   }
 
   private toScrollPoint(event: TelemetryEvent): Point | null {
-    const scrollY = this.getPayloadNumber(event.payload, [
-      'scrollY',
-      'deltaY',
-      'y',
-    ]);
+    const deltaY = this.getPayloadNumber(event.payload, ['deltaY', 'scrollDeltaY']);
+    const scrollY = this.getPayloadNumber(event.payload, ['scrollY', 'y']);
+    const effectiveY = deltaY ?? scrollY;
 
-    if (scrollY === null) {
+    if (effectiveY === null) {
       return null;
     }
 
     return {
       x: 0,
-      y: scrollY,
+      y: effectiveY,
       timestamp: this.getEventTime(event),
     };
   }

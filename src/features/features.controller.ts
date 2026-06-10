@@ -5,7 +5,9 @@ import {
   Get,
   Param,
   Post,
+  Query,
   Req,
+  Res,
   UseGuards,
 } from '@nestjs/common';
 import {
@@ -96,6 +98,25 @@ export class FeaturesController {
     );
   }
 
+  @Get('export/csv')
+  @ApiOperation({ summary: 'Export training summaries for the authenticated user as CSV' })
+  @ApiOkResponse({ description: 'CSV export returned.' })
+  async exportCsv(
+    @Req() req: AuthenticatedRequest,
+    @Query('onlyLabeled') onlyLabeled: string | undefined,
+    @Res({ passthrough: true }) res: any,
+  ) {
+    const csv = await this.features.exportTrainingCsv(
+      req.user!.userId,
+      onlyLabeled === 'true',
+    );
+
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', 'attachment; filename="training-data.csv"');
+
+    return csv;
+  }
+
   @Post('training-summary/all')
   @ApiOperation({
     summary: 'Return flattened ML training summaries for all sessions owned by the authenticated user',
@@ -115,14 +136,14 @@ export class FeaturesController {
     );
   }
 
-  @Delete(':id')
-  @ApiOperation({ summary: 'Delete a stored feature by id' })
-  @ApiOkResponse({ description: 'Feature deleted.' })
+  @Delete('session/:sessionId')
+  @ApiOperation({ summary: 'Delete stored features for an owned session' })
+  @ApiOkResponse({ description: 'Features deleted.' })
   deleteFeature(
-    @Param('id') id: string,
+    @Param('sessionId') sessionId: string,
     @Req() req: AuthenticatedRequest,
   ) {
-    return this.features.deleteFeature(req.user!.userId, id);
+    return this.features.deleteFeature(req.user!.userId, sessionId);
   }
 
   @Get('session/:sessionId')
