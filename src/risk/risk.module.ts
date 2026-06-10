@@ -8,5 +8,6 @@ import { RiskService } from './risk.service';
   imports: [AuthModule, FeaturesModule],
   controllers: [RiskController],
   providers: [RiskService],
+  exports: [RiskService],
 })
-export class RiskModule {}
+export class RiskModule { }
