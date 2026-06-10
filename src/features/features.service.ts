@@ -349,6 +349,31 @@ export class FeaturesService {
     );
   }
 
+  async deleteFeature(userId: string, featureId: string) {
+    const feature = await this.prisma.feature.findUnique({
+      where: { id: featureId },
+      select: { id: true, sessionId: true },
+    });
+
+    if (!feature) {
+      throw new NotFoundException(`Feature with ID "${featureId}" not found`);
+    }
+
+    await this.assertSessionOwner(userId, feature.sessionId);
+
+    await this.prisma.$transaction([
+      this.prisma.prediction.updateMany({
+        where: { featureId },
+        data: { featureId: null },
+      }),
+      this.prisma.feature.delete({
+        where: { id: featureId },
+      }),
+    ]);
+
+    return { success: true, featureId };
+  }
+
   async retrieveFeatures(userId: string, sessionId: string) {
     await this.assertSessionOwner(userId, sessionId);
 
