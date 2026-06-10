@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   Post,
@@ -112,6 +113,16 @@ export class FeaturesController {
       req.user!.userId,
       req.user!.sessionId,
     );
+  }
+
+  @Delete(':id')
+  @ApiOperation({ summary: 'Delete a stored feature by id' })
+  @ApiOkResponse({ description: 'Feature deleted.' })
+  deleteFeature(
+    @Param('id') id: string,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    return this.features.deleteFeature(req.user!.userId, id);
   }
 
   @Get('session/:sessionId')

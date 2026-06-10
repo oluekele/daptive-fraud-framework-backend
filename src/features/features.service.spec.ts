@@ -34,3 +34,46 @@ describe('FeaturesService.buildTrainingRecord', () => {
     expect(record.mouse_distance).toBeGreaterThan(0);
   });
 });
+
+describe('FeaturesService.deleteFeature', () => {
+  it('deletes a feature after confirming the owning session belongs to the user', async () => {
+    const prisma = {
+      feature: {
+        findUnique: jest.fn().mockResolvedValue({ id: 'feature-1', sessionId: 'session-1' }),
+        delete: jest.fn().mockResolvedValue({ id: 'feature-1' }),
+      },
+      prediction: {
+        updateMany: jest.fn().mockResolvedValue({ count: 0 }),
+      },
+      session: {
+        findFirst: jest.fn().mockResolvedValue({ id: 'session-1' }),
+      },
+      $transaction: jest.fn().mockImplementation(async (operations) => {
+        for (const operation of operations) {
+          await operation;
+        }
+      }),
+    };
+
+    const service = new FeaturesService(prisma as any);
+
+    const result = await service.deleteFeature('user-1', 'feature-1');
+
+    expect(prisma.feature.findUnique).toHaveBeenCalledWith({
+      where: { id: 'feature-1' },
+      select: { id: true, sessionId: true },
+    });
+    expect(prisma.session.findFirst).toHaveBeenCalledWith({
+      where: { id: 'session-1', userId: 'user-1' },
+      select: { id: true },
+    });
+    expect(prisma.prediction.updateMany).toHaveBeenCalledWith({
+      where: { featureId: 'feature-1' },
+      data: { featureId: null },
+    });
+    expect(prisma.feature.delete).toHaveBeenCalledWith({
+      where: { id: 'feature-1' },
+    });
+    expect(result).toEqual({ success: true, featureId: 'feature-1' });
+  });
+});
