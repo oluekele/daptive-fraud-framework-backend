@@ -3,17 +3,24 @@ import { ApiBearerAuth, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swa
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import type { AuthenticatedRequest } from '../auth/interfaces/authenticated-request.interface';
 import { RiskService } from '../risk/risk.service';
+import { MlPredictionService } from './ml-prediction.service';
+import { PredictMlBodyDto } from './ml-prediction.dto';
 
 class PredictBodyDto {
   sessionId?: string;
 }
+
 
 @ApiTags('predict')
 @Controller('predict')
 @UseGuards(JwtAuthGuard)
 @ApiBearerAuth()
 export class PredictController {
-  constructor(private readonly riskService: RiskService) { }
+  constructor(
+    private readonly riskService: RiskService,
+    private readonly mlPrediction: MlPredictionService,
+  ) { }
+
 
   @Post()
   @ApiOperation({ summary: 'Generate a prediction for the active or supplied session' })
@@ -38,4 +45,27 @@ export class PredictController {
       features: result.features,
     };
   }
+
+  @Post('ml')
+  @ApiOperation({ summary: 'Generate a prediction using the ML service' })
+  @ApiOkResponse({ description: 'ML prediction returned.' })
+  async predictMl(
+    @Req() req: AuthenticatedRequest,
+    @Body() body: PredictMlBodyDto,
+  ) {
+    const sessionId = req.user!.sessionId;
+
+    const result = await this.mlPrediction.predictAndSaveMlPrediction({
+      userId: req.user!.userId,
+      sessionId,
+      // approach A: send raw feature vector; body.features contains ML keys
+      features: body.features,
+    });
+
+    return {
+      ...result,
+      modelName: result.modelName,
+    };
+  }
 }
+

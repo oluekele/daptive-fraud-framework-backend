@@ -10,6 +10,9 @@ import { PrismaModule } from './prisma/prisma.module';
 import { FeaturesModule } from './features/features.module';
 import { PredictController } from './predict/predict.controller';
 import { RiskModule } from './risk/risk.module';
+import { MlPredictionService } from './predict/ml-prediction.service';
+
+
 
 @Module({
   imports: [
@@ -26,6 +29,7 @@ import { RiskModule } from './risk/risk.module';
     RiskModule,
   ],
   controllers: [AppController, PredictController],
-  providers: [AppService],
+  providers: [AppService, MlPredictionService],
 })
 export class AppModule { }
+
