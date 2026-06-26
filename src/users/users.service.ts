@@ -4,7 +4,7 @@ import { User } from '@prisma/client';
 
 @Injectable()
 export class UsersService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService) { }
 
   /**
    * Find all users in the database
@@ -47,7 +47,7 @@ export class UsersService {
   }
 
   /**
-   * Find a user by their email address
+   * Find a user by email address
    * @param email - The email address of the user
    * @returns Promise<User | null> - The user object or null if not found
    */
