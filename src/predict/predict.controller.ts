@@ -87,8 +87,14 @@ import {
 
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import type { AuthenticatedRequest } from '../auth/interfaces/authenticated-request.interface';
-
+import { RiskService } from '../risk/risk.service';
 import { MlPredictionService } from './ml-prediction.service';
+import { PredictMlBodyDto } from './ml-prediction.dto';
+
+class PredictBodyDto {
+  sessionId?: string;
+}
+
 
 @ApiTags('predict')
 @Controller('predict')
@@ -96,7 +102,8 @@ import { MlPredictionService } from './ml-prediction.service';
 @ApiBearerAuth()
 export class PredictController {
   constructor(
-    private readonly mlPredictionService: MlPredictionService,
+    private readonly riskService: RiskService,
+    private readonly mlPrediction: MlPredictionService,
   ) { }
 
   @Post('ml')
@@ -124,6 +131,7 @@ export class PredictController {
   })
   async predictMl(
     @Req() req: AuthenticatedRequest,
+    @Body() dto: PredictBodyDto,
   ) {
     if (!req.user?.userId || !req.user?.sessionId) {
       // Deployed guard/Auth issues can lead to missing claims
@@ -138,5 +146,37 @@ export class PredictController {
       req.user.userId,
       req.user.sessionId,
     );
+
+    return {
+      sessionId,
+      modelName: 'heuristic-random-forest',
+      fraudProbability: Number((result.score / 100).toFixed(4)),
+      score: result.score,
+      level: result.level,
+      features: result.features,
+    };
+  }
+
+  @Post('ml')
+  @ApiOperation({ summary: 'Generate a prediction using the ML service' })
+  @ApiOkResponse({ description: 'ML prediction returned.' })
+  async predictMl(
+    @Req() req: AuthenticatedRequest,
+    @Body() body: PredictMlBodyDto,
+  ) {
+    const sessionId = req.user!.sessionId;
+
+    const result = await this.mlPrediction.predictAndSaveMlPrediction({
+      userId: req.user!.userId,
+      sessionId,
+      // approach A: send raw feature vector; body.features contains ML keys
+      features: body.features,
+    });
+
+    return {
+      ...result,
+      modelName: result.modelName,
+    };
   }
 }
+

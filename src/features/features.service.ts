@@ -67,7 +67,6 @@ export class FeaturesService {
     await this.assertSessionOwner(userId, sessionId);
 
     const events = await this.prisma.telemetry.findMany({
-
       where: { sessionId },
       orderBy: { createdAt: 'asc' },
       select: {
@@ -450,6 +449,92 @@ export class FeaturesService {
     return [headers.join(','), ...rows].join('\n');
   }
 
+  private async getTrainingSummaryBySessionId(sessionId: string): Promise<TrainingRecord> {
+    const [events, latestRisk, session] = await Promise.all([
+      this.prisma.telemetry.findMany({
+        where: { sessionId },
+        orderBy: { createdAt: 'asc' },
+        select: {
+          eventType: true,
+          payload: true,
+          createdAt: true,
+        },
+      }),
+      this.prisma.riskScore.findFirst({
+        where: { sessionId },
+        orderBy: { createdAt: 'desc' },
+        select: { level: true },
+      }),
+      this.prisma.session.findFirst({
+        where: { id: sessionId },
+        select: { id: true, label: true },
+      }),
+    ]);
+
+    if (!session) {
+      throw new NotFoundException(`Session with ID "${sessionId}" not found`);
+    }
+
+    return this.buildTrainingRecord(events, {
+      sessionId,
+      riskLevel: latestRisk?.level ?? null,
+      riskLabel: session.label ?? null,
+    });
+  }
+
+  async exportTrainingCsvAllUsers(onlyLabeled = false) {
+    const sessions = await this.prisma.session.findMany({
+      where: onlyLabeled ? { label: { not: null } } : undefined,
+      select: { id: true, label: true },
+      orderBy: { startedAt: 'desc' },
+    });
+
+    const summaries = await Promise.all(
+      sessions.map(async (session) => {
+        const summary = await this.getTrainingSummaryBySessionId(session.id);
+        return {
+          ...summary,
+          session_id: session.id,
+          label: session.label ?? '',
+        };
+      }),
+    );
+
+    const headers = [
+      'session_id',
+      'label',
+      'duration_seconds',
+      'mouse_moves',
+      'mouse_clicks',
+      'scroll_events',
+      'keyboard_events',
+      'avg_mouse_speed',
+      'max_mouse_speed',
+      'avg_scroll_speed',
+      'scroll_depth',
+      'scroll_direction_changes',
+      'idle_time_seconds',
+      'keystrokes_per_second',
+      'click_rate',
+      'event_rate',
+      'risk_label',
+    ];
+
+    const rows = summaries.map((summary) =>
+      headers
+        .map((header) => {
+          const value = summary[header as keyof typeof summary];
+          const normalized = value === null || value === undefined ? '' : String(value);
+          return normalized.includes(',') || normalized.includes('"') || normalized.includes('\n')
+            ? `"${normalized.replace(/"/g, '""')}"`
+            : normalized;
+        })
+        .join(','),
+    );
+
+    return [headers.join(','), ...rows].join('\n');
+  }
+
   async retrieveFeatures(userId: string, sessionId: string) {
     await this.assertSessionOwner(userId, sessionId);
 
@@ -507,9 +592,7 @@ export class FeaturesService {
     );
 
     const mouseMoveEvents = events.filter((e) => e.eventType === 'mouse_move');
-    const mouseClickEvents = events.filter(
-      (e) => e.eventType === 'mouse_click',
-    );
+    const mouseClickEvents = events.filter((e) => e.eventType === 'mouse_click');
     const scrollEvents = events.filter((e) => e.eventType === 'scroll');
     const idleEvents = events.filter((e) => e.eventType === 'idle_activity');
 
@@ -520,9 +603,7 @@ export class FeaturesService {
 
     // idle_time_seconds from payload durationMs|idleMs|duration (ms)
     const idleTimeMs = idleEvents
-      .map((e) =>
-        this.getPayloadNumber(e.payload, ['durationMs', 'idleMs', 'duration']),
-      )
+      .map((e) => this.getPayloadNumber(e.payload, ['durationMs', 'idleMs', 'duration']))
       .filter((v): v is number => v !== null && v > 0);
 
     const idleTimeSeconds =
@@ -932,3 +1013,4 @@ export class FeaturesService {
     }
   }
 }
+
