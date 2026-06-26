@@ -10,4 +10,3 @@ export class ExportTrainingVectorsDto {
   @IsBoolean()
   onlyLabeled?: boolean;
 }
-

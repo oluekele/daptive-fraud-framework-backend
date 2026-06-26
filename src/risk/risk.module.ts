@@ -10,4 +10,4 @@ import { RiskService } from './risk.service';
   providers: [RiskService],
   exports: [RiskService],
 })
-export class RiskModule { }
+export class RiskModule {}

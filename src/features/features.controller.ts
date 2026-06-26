@@ -29,7 +29,7 @@ import { FeaturesService } from './features.service';
 @UseGuards(JwtAuthGuard)
 @ApiBearerAuth()
 export class FeaturesController {
-  constructor(private readonly features: FeaturesService) { }
+  constructor(private readonly features: FeaturesService) {}
 
   @Post('generate')
   @ApiOperation({
@@ -48,16 +48,18 @@ export class FeaturesController {
 
   @Post('generate/all')
   @ApiOperation({
-    summary: 'Backfill behavioral features for all sessions owned by the authenticated user',
+    summary:
+      'Backfill behavioral features for all sessions owned by the authenticated user',
   })
   @ApiCreatedResponse({ description: 'Features generated for all sessions.' })
   generateAllFeatures(
     @Body() dto: GenerateFeaturesAllDto,
     @Req() req: AuthenticatedRequest,
   ) {
-    return this.features.generateAndStoreFeaturesForAllSessions(req.user!.userId);
+    return this.features.generateAndStoreFeaturesForAllSessions(
+      req.user!.userId,
+    );
   }
-
 
   @Get('training-vector')
   @ApiOperation({
@@ -73,7 +75,8 @@ export class FeaturesController {
 
   @Post('training-vector/all')
   @ApiOperation({
-    summary: 'Export ML training vectors for all sessions owned by the authenticated user',
+    summary:
+      'Export ML training vectors for all sessions owned by the authenticated user',
   })
   @ApiOkResponse({ description: 'Training vectors returned.' })
   trainingVectorAll(
@@ -99,7 +102,9 @@ export class FeaturesController {
   }
 
   @Get('export/csv')
-  @ApiOperation({ summary: 'Export training summaries for the authenticated user as CSV' })
+  @ApiOperation({
+    summary: 'Export training summaries for the authenticated user as CSV',
+  })
   @ApiOkResponse({ description: 'CSV export returned.' })
   async exportCsv(
     @Req() req: AuthenticatedRequest,
@@ -112,14 +117,18 @@ export class FeaturesController {
     );
 
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-    res.setHeader('Content-Disposition', 'attachment; filename="training-data.csv"');
+    res.setHeader(
+      'Content-Disposition',
+      'attachment; filename="training-data.csv"',
+    );
 
     return csv;
   }
 
   @Post('training-summary/all')
   @ApiOperation({
-    summary: 'Return flattened ML training summaries for all sessions owned by the authenticated user',
+    summary:
+      'Return flattened ML training summaries for all sessions owned by the authenticated user',
   })
   @ApiOkResponse({ description: 'Training summaries returned.' })
   trainingSummaryAll(@Req() req: AuthenticatedRequest) {
@@ -155,6 +164,4 @@ export class FeaturesController {
   ) {
     return this.features.retrieveFeatures(req.user!.userId, sessionId);
   }
-
 }
-

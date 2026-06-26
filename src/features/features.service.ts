@@ -61,13 +61,12 @@ export type TrainingRecord = {
 
 @Injectable()
 export class FeaturesService {
-  constructor(private readonly prisma: PrismaService) { }
+  constructor(private readonly prisma: PrismaService) {}
 
   async generateAndStoreFeatures(userId: string, sessionId: string) {
     await this.assertSessionOwner(userId, sessionId);
 
     const events = await this.prisma.telemetry.findMany({
-
       where: { sessionId },
       orderBy: { createdAt: 'asc' },
       select: {
@@ -211,7 +210,6 @@ export class FeaturesService {
   }
 
   async getTrainingVectorWrapper(
-
     userId: string,
 
     sessionId: string,
@@ -302,11 +300,16 @@ export class FeaturesService {
       mouse_distance: vector.mouseDistance,
       click_rate: vector.clickRate,
       event_rate: vector.eventRate,
-      risk_label: this.toRiskLabel(options.riskLabel ?? options.riskLevel ?? null),
+      risk_label: this.toRiskLabel(
+        options.riskLabel ?? options.riskLevel ?? null,
+      ),
     };
   }
 
-  async getTrainingSummary(userId: string, sessionId: string): Promise<TrainingRecord> {
+  async getTrainingSummary(
+    userId: string,
+    sessionId: string,
+  ): Promise<TrainingRecord> {
     await this.assertSessionOwner(userId, sessionId);
 
     const [events, latestRisk, session] = await Promise.all([
@@ -379,7 +382,9 @@ export class FeaturesService {
     });
 
     if (!features.length) {
-      throw new NotFoundException(`No features found for session "${sessionId}"`);
+      throw new NotFoundException(
+        `No features found for session "${sessionId}"`,
+      );
     }
 
     const featureIds = features.map(({ id }) => id);
@@ -439,8 +444,11 @@ export class FeaturesService {
       headers
         .map((header) => {
           const value = summary[header as keyof typeof summary];
-          const normalized = value === null || value === undefined ? '' : String(value);
-          return normalized.includes(',') || normalized.includes('"') || normalized.includes('\n')
+          const normalized =
+            value === null || value === undefined ? '' : String(value);
+          return normalized.includes(',') ||
+            normalized.includes('"') ||
+            normalized.includes('\n')
             ? `"${normalized.replace(/"/g, '""')}"`
             : normalized;
         })
@@ -825,7 +833,10 @@ export class FeaturesService {
   }
 
   private toScrollPoint(event: TelemetryEvent): Point | null {
-    const deltaY = this.getPayloadNumber(event.payload, ['deltaY', 'scrollDeltaY']);
+    const deltaY = this.getPayloadNumber(event.payload, [
+      'deltaY',
+      'scrollDeltaY',
+    ]);
     const scrollY = this.getPayloadNumber(event.payload, ['scrollY', 'y']);
     const effectiveY = deltaY ?? scrollY;
 
@@ -907,14 +918,20 @@ export class FeaturesService {
     return values.reduce((sum, value) => sum + value, 0) / values.length;
   }
 
-  private toRiskLabel(value: string | null | undefined): TrainingRecord['risk_label'] {
+  private toRiskLabel(
+    value: string | null | undefined,
+  ): TrainingRecord['risk_label'] {
     const normalized = (value ?? '').toLowerCase();
 
     if (['human', 'legitimate', 'safe', 'low'].includes(normalized)) {
       return 'legitimate';
     }
 
-    if (['bot', 'suspicious', 'anomalous', 'medium', 'high', 'critical'].includes(normalized)) {
+    if (
+      ['bot', 'suspicious', 'anomalous', 'medium', 'high', 'critical'].includes(
+        normalized,
+      )
+    ) {
       return 'suspicious';
     }
 

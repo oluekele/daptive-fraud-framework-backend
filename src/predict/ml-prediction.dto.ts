@@ -1,11 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import {
-  IsNumber,
-  IsOptional,
-  IsInt,
-  ValidateNested,
-} from 'class-validator';
+import { IsNumber, IsOptional, IsInt, ValidateNested } from 'class-validator';
 
 export class MlPredictionFeaturesDto {
   @ApiProperty({ example: 180 })
@@ -85,6 +80,3 @@ export class PredictMlBodyDto {
   // Accepts request shape: { "features": { ... } }
   features!: MlPredictionFeaturesDto;
 }
-
-
-

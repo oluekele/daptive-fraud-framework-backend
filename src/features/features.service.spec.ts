@@ -5,13 +5,41 @@ describe('FeaturesService.buildTrainingRecord', () => {
     const service = new FeaturesService({} as any);
 
     const events = [
-      { eventType: 'keydown', payload: { key: 'a', timestamp: 0 }, createdAt: new Date(0) },
-      { eventType: 'keyup', payload: { key: 'a', timestamp: 100 }, createdAt: new Date(0) },
-      { eventType: 'mouse_move', payload: { x: 0, y: 0, timestamp: 100 }, createdAt: new Date(0) },
-      { eventType: 'mouse_move', payload: { x: 10, y: 5, timestamp: 200 }, createdAt: new Date(0) },
-      { eventType: 'mouse_click', payload: { timestamp: 250 }, createdAt: new Date(0) },
-      { eventType: 'scroll', payload: { scrollY: 50, timestamp: 300 }, createdAt: new Date(0) },
-      { eventType: 'idle_activity', payload: { durationMs: 2000, timestamp: 350 }, createdAt: new Date(0) },
+      {
+        eventType: 'keydown',
+        payload: { key: 'a', timestamp: 0 },
+        createdAt: new Date(0),
+      },
+      {
+        eventType: 'keyup',
+        payload: { key: 'a', timestamp: 100 },
+        createdAt: new Date(0),
+      },
+      {
+        eventType: 'mouse_move',
+        payload: { x: 0, y: 0, timestamp: 100 },
+        createdAt: new Date(0),
+      },
+      {
+        eventType: 'mouse_move',
+        payload: { x: 10, y: 5, timestamp: 200 },
+        createdAt: new Date(0),
+      },
+      {
+        eventType: 'mouse_click',
+        payload: { timestamp: 250 },
+        createdAt: new Date(0),
+      },
+      {
+        eventType: 'scroll',
+        payload: { scrollY: 50, timestamp: 300 },
+        createdAt: new Date(0),
+      },
+      {
+        eventType: 'idle_activity',
+        payload: { durationMs: 2000, timestamp: 350 },
+        createdAt: new Date(0),
+      },
     ];
 
     const record = service.buildTrainingRecord(events, {
@@ -40,7 +68,9 @@ describe('FeaturesService.deleteFeature', () => {
     const prisma = {
       feature: {
         findUnique: jest.fn().mockResolvedValue(null),
-        findMany: jest.fn().mockResolvedValue([{ id: 'feature-1', sessionId: 'session-1' }]),
+        findMany: jest
+          .fn()
+          .mockResolvedValue([{ id: 'feature-1', sessionId: 'session-1' }]),
         deleteMany: jest.fn().mockResolvedValue({ count: 1 }),
       },
       prediction: {
@@ -75,7 +105,11 @@ describe('FeaturesService.deleteFeature', () => {
     expect(prisma.feature.deleteMany).toHaveBeenCalledWith({
       where: { sessionId: 'session-1' },
     });
-    expect(result).toEqual({ success: true, sessionId: 'session-1', deletedCount: 1 });
+    expect(result).toEqual({
+      success: true,
+      sessionId: 'session-1',
+      deletedCount: 1,
+    });
   });
 });
 
@@ -84,9 +118,21 @@ describe('FeaturesService.extractTrainingVector', () => {
     const service = new FeaturesService({} as any);
 
     const vector = service.extractTrainingVector([
-      { eventType: 'scroll', payload: { deltaY: 50, timestamp: 100 }, createdAt: new Date(0) },
-      { eventType: 'scroll', payload: { deltaY: -10, timestamp: 200 }, createdAt: new Date(0) },
-      { eventType: 'idle_activity', payload: { durationMs: 2500, timestamp: 300 }, createdAt: new Date(0) },
+      {
+        eventType: 'scroll',
+        payload: { deltaY: 50, timestamp: 100 },
+        createdAt: new Date(0),
+      },
+      {
+        eventType: 'scroll',
+        payload: { deltaY: -10, timestamp: 200 },
+        createdAt: new Date(0),
+      },
+      {
+        eventType: 'idle_activity',
+        payload: { durationMs: 2500, timestamp: 300 },
+        createdAt: new Date(0),
+      },
     ]);
 
     expect(vector.avgScrollSpeed).toBeCloseTo(300, 5);
