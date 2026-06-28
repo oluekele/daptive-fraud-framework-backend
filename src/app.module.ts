@@ -12,6 +12,8 @@ import { PredictController } from './predict/predict.controller';
 import { RiskModule } from './risk/risk.module';
 import { MlPredictionService } from './predict/ml-prediction.service';
 
+
+
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -29,4 +31,5 @@ import { MlPredictionService } from './predict/ml-prediction.service';
   controllers: [AppController, PredictController],
   providers: [AppService, MlPredictionService],
 })
-export class AppModule {}
+export class AppModule { }
+

@@ -10,6 +10,7 @@
 //   sessionId?: string;
 // }
 
+
 // @ApiTags('predict')
 // @Controller('predict')
 // @UseGuards(JwtAuthGuard)
@@ -19,6 +20,7 @@
 //     private readonly riskService: RiskService,
 //     private readonly mlPrediction: MlPredictionService,
 //   ) { }
+
 
 //   @Post()
 //   @ApiOperation({ summary: 'Generate a prediction for the active or supplied session' })
@@ -67,8 +69,8 @@
 //   }
 // }
 
+
 import {
-  BadRequestException,
   Controller,
   Post,
   Req,
@@ -92,44 +94,23 @@ import { MlPredictionService } from './ml-prediction.service';
 @UseGuards(JwtAuthGuard)
 @ApiBearerAuth()
 export class PredictController {
-  constructor(private readonly mlPredictionService: MlPredictionService) {}
+  constructor(
+    private readonly mlPredictionService: MlPredictionService,
+  ) { }
 
   @Post('ml')
   @ApiOperation({
     summary: 'Generate ML prediction for current session',
-    description:
-      'This endpoint uses the authenticated user session (JWT claims) and does not accept a request body.',
   })
   @ApiOkResponse({
     description: 'Prediction returned',
-    schema: {
-      example: {
-        sessionId: 'session_123',
-        mlPrediction: 1,
-        confidence: 0.82,
-        probabilities: {
-          0: 0.18,
-          1: 0.82,
-        },
-        score: 82,
-        level: 'high',
-        predictionId: 'prediction_123',
-      },
-    },
   })
-  async predictMl(@Req() req: AuthenticatedRequest) {
-    if (!req.user?.userId || !req.user?.sessionId) {
-      // Deployed guard/Auth issues can lead to missing claims
-      // (e.g. “sessionId not available”). Return a clear error.
-      // Using an exception ensures correct HTTP status codes.
-      throw new BadRequestException(
-        'sessionId not available in authenticated request. Call must include a valid bearer token for an active session.',
-      );
-    }
-
+  async predictMl(
+    @Req() req: AuthenticatedRequest,
+  ) {
     return this.mlPredictionService.predictForSession(
-      req.user.userId,
-      req.user.sessionId,
+      req.user!.userId,
+      req.user!.sessionId,
     );
   }
 }

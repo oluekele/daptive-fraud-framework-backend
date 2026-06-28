@@ -47,7 +47,7 @@ export class UsersService {
   }
 
   /**
-   * Find a user by email address
+   * Find a user by their email address
    * @param email - The email address of the user
    * @returns Promise<User | null> - The user object or null if not found
    */
