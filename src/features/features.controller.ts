@@ -117,6 +117,24 @@ export class FeaturesController {
     return csv;
   }
 
+  @Get('export/csv/all')
+  @ApiOperation({ summary: 'Export training summaries for all users as CSV' })
+  @ApiOkResponse({ description: 'CSV export returned.' })
+  async exportCsvAllUsers(
+    @Query('onlyLabeled') onlyLabeled: string | undefined,
+    @Res({ passthrough: true }) res: any,
+  ) {
+    const csv = await this.features.exportTrainingCsvAllUsers(
+      onlyLabeled === 'true',
+    );
+
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', 'attachment; filename="training-data-all-users.csv"');
+
+    return csv;
+  }
+
+
   @Post('training-summary/all')
   @ApiOperation({
     summary: 'Return flattened ML training summaries for all sessions owned by the authenticated user',

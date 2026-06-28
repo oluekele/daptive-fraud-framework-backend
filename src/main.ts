@@ -42,6 +42,7 @@ async function bootstrap() {
 
   const apiUrl = `http://localhost:${port}`;
   const swaggerUrl = `${apiUrl}/docs`;
+  console.log('DATABASE_URL:', process.env.DATABASE_URL);
 
   console.log('DATABASE_URL:', process.env.DATABASE_URL);
   logger.log(`API running on: ${apiUrl}`);
