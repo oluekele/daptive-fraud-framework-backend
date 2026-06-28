@@ -42,4 +42,4 @@ export class PredictController {
     );
   }
 }
-// where is result
+
